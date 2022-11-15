@@ -171,15 +171,15 @@ class Window(Tk):
         self.canvas_bottom.addtag_withtag('image', self.image_added_sign)
         self.canvas_bottom.addtag_withtag('image_added_sign', self.image_added_sign)
 
-class Weiqi():
-    def __init__(self, chessboard_size=9):
+class weiqi_board:
+    def __init__(self, backend, window_size, dd, p, chessboard_size=9):
+        self.backend = backend
         # 模式，九路棋：9，十三路棋：13，十九路棋：19
         self.mode_num = chessboard_size
-        self.window_size = 1.8
-        self.dd = 360 * self.window_size / (self.mode_num - 1)  # 棋盘每格的边长
+        self.window_size = window_size
+        self.dd = dd  # 棋盘每格的边长
         # 棋盘的相对矫正比例
-        self.p = 1 if self.mode_num == 9 else (2 / 3 if self.mode_num == 13 else 4 / 9)
-        self.window = Window(self, self.window_size, self.dd, self.p, chessboard_size)
+        self.p = p
         # 棋盘阵列,超过边界：-1，无子：0，黑棋：1，白棋：2
         self.chessboard = [[0 for i in range(self.mode_num + 2)] for i in range(self.mode_num + 2)]
         for m in range(self.mode_num + 2):
@@ -191,139 +191,39 @@ class Weiqi():
         self.last_2_chessboard = copy.deepcopy(self.chessboard)
         self.last_1_chessboard = copy.deepcopy(self.chessboard)
 
-        # 当前轮到的玩家，黑：0，白：1，执黑先行
-        self.present = 0
-        # 初始停止，点击“开始游戏”运行游戏
-        self.stop = True
-        # 悔棋次数，次数大于0才可悔棋，初始置0（初始不能悔棋），悔棋后置0，下棋或弃手时恢复为1，以禁止连续悔棋
-        self.regretchance = 0
-
-
-    # 开始游戏函数
-    def start(self):
-        # 图标处理
-        self.window.start(self.present)
-        # 开始标志，解除stop
-        self.stop = None
-
-    # 放弃一手函数，跳过落子环节
     def passme(self):
-        # 悔棋恢复
-        if not self.regretchance == 1:
-            self.regretchance += 1
-        else:
-            self.window.regretButton['state'] = NORMAL
         # 拷贝棋盘状态，记录前三次棋局
         self.last_3_chessboard = copy.deepcopy(self.last_2_chessboard)
         self.last_2_chessboard = copy.deepcopy(self.last_1_chessboard)
         self.last_1_chessboard = copy.deepcopy(self.chessboard)
-        self.window.canvas_bottom.delete('image_added_sign')
-        # 轮到下一玩家
-        self.window.player_change(self.present)
-        self.present = 1 - self.present
 
-    # 悔棋函数，可悔棋一回合，下两回合不可悔棋
     def regret(self):
-        # 判定是否可以悔棋，以前第三手棋局复原棋盘
-        if self.regretchance == 1:
-            self.regretchance = 0
-            self.window.regretButton['state'] = DISABLED
-            list_of_b = []
-            list_of_w = []
-            self.window.regret(self.present)  # 修改UI
-            for m in range(1, self.mode_num + 1):
-                for n in range(1, self.mode_num + 1):
-                    self.chessboard[m][n] = 0
-            for m in range(len(self.last_3_chessboard)):
-                for n in range(len(self.last_3_chessboard[m])):
-                    if self.last_3_chessboard[m][n] == 1:
-                        list_of_b += [[n, m]]
-                    elif self.last_3_chessboard[m][n] == 2:
-                        list_of_w += [[n, m]]
-            self.recover(list_of_b, 0)
-            self.recover(list_of_w, 1)
-            self.last_1_chessboard = copy.deepcopy(self.last_3_chessboard)
-            for m in range(1, self.mode_num + 1):
-                for n in range(1, self.mode_num + 1):
-                    self.last_2_chessboard[m][n] = 0
-                    self.last_3_chessboard[m][n] = 0
+        list_of_b = []
+        list_of_w = []
+        for m in range(1, self.mode_num + 1):
+            for n in range(1, self.mode_num + 1):
+                self.chessboard[m][n] = 0
+        for m in range(len(self.last_3_chessboard)):
+            for n in range(len(self.last_3_chessboard[m])):
+                if self.last_3_chessboard[m][n] == 1:
+                    list_of_b += [[n, m]]
+                elif self.last_3_chessboard[m][n] == 2:
+                    list_of_w += [[n, m]]
+        self.last_1_chessboard = copy.deepcopy(self.last_3_chessboard)
+        for m in range(1, self.mode_num + 1):
+            for n in range(1, self.mode_num + 1):
+                self.last_2_chessboard[m][n] = 0
+                self.last_3_chessboard[m][n] = 0
+        return list_of_b, list_of_w
 
-    # 重新加载函数,删除图片，序列归零，设置一些初始参数，点击“重新开始”时调用
     def reload(self):
-        if self.stop == 1:
-            self.stop = 0
-        self.regretchance = 0
-        self.present = 0
-        self. window.reload()
         for m in range(1, self.mode_num + 1):
             for n in range(1, self.mode_num + 1):
                 self.chessboard[m][n] = 0
                 self.last_3_chessboard[m][n] = 0
                 self.last_2_chessboard[m][n] = 0
                 self.last_1_chessboard[m][n] = 0
-
-    # 落子，并驱动玩家的轮流下棋行为
-    def getDown(self, event):
-        if not self.stop:
-            # 先找到最近格点
-            if (20 * self.window_size - self.dd * 0.4 < event.x < self.dd * 0.4 + 380 * self.window_size) and (
-                    20 * self.window_size - self.dd * 0.4 < event.y < self.dd * 0.4 + 380 * self.window_size):
-                dx = (event.x - 20 * self.window_size) % self.dd
-                dy = (event.y - 20 * self.window_size) % self.dd
-                x = int((event.x - 20 * self.window_size - dx) / self.dd + round(dx / self.dd) + 1)
-                y = int((event.y - 20 * self.window_size - dy) / self.dd + round(dy / self.dd) + 1)
-                # 判断位置是否已经被占据
-                if self.chessboard[y][x] == 0:
-                    # 未被占据，则尝试占据，获得占据后能杀死的棋子列表
-                    self.chessboard[y][x] = self.present + 1
-                    self.window.add_image(
-                        event.x - dx + round(dx / self.dd) * self.dd + 4 * self.p,
-                        event.y - dy + round(dy / self.dd) * self.dd - 5 * self.p,
-                        x, y, self.present
-                    )
-                    deadlist = self.get_deadlist(x, y)
-                    self.kill(deadlist)
-                    # 判断是否重复棋局
-                    if not self.last_2_chessboard == self.chessboard:
-                        # 判断是否属于有气和杀死对方其中之一
-                        if len(deadlist) > 0 or self.if_dead([[x, y]], self.present + 1, [x, y]) == False:
-                            # 当不重复棋局，且属于有气和杀死对方其中之一时，落下棋子有效
-                            if not self.regretchance == 1:
-                                self.regretchance += 1
-                            else:
-                                self.window.regretButton['state'] = NORMAL
-                            self.last_3_chessboard = copy.deepcopy(self.last_2_chessboard)
-                            self.last_2_chessboard = copy.deepcopy(self.last_1_chessboard)
-                            self.last_1_chessboard = copy.deepcopy(self.chessboard)
-                            # 删除上次的标记，重新创建标记
-                            self.window.create_sign(
-                                event.x - dx + round(dx / self.dd) * self.dd + 0.5 * self.dd,
-                                event.y - dy + round(dy / self.dd) * self.dd + 0.5 * self.dd,
-                                event.x - dx + round(dx / self.dd) * self.dd - 0.5 * self.dd,
-                                event.y - dy + round(dy / self.dd) * self.dd - 0.5 * self.dd
-                            )
-                            # 轮到下一玩家
-                            self.window.player_change(self.present)
-                            self.present = 1 - self.present
-                        else:
-                            # 不属于杀死对方或有气，则判断为无气，警告并弹出警告框
-                            self.chessboard[y][x] = 0
-                            self.window.canvas_bottom.delete('position' + str(x) + str(y))
-                            self.window.bell()
-                            self.window.showwarningbox('无气', "你被包围了！")
-                    else:
-                        # 重复棋局，警告打劫
-                        self.chessboard[y][x] = 0
-                        self.window.canvas_bottom.delete('position' + str(x) + str(y))
-                        self.recover(deadlist, (1 if self.present == 0 else 0))
-                        self.window.bell()
-                        self.window.showwarningbox("打劫", "此路不通！")
-                else:
-                    # 覆盖，声音警告
-                    self.window.bell()
-            else:
-                # 超出边界，声音警告
-                self.window.bell()
+        return
 
     # 判断棋子（种类为yourChessman，位置为yourPosition）是否无气（死亡），有气则返回False，无气则返回无气棋子的列表
     # 本函数是游戏规则的关键，初始deadlist只包含了自己的位置，每次执行时，函数尝试寻找yourPosition周围有没有空的位置，有则结束，返回False代表有气；
@@ -372,38 +272,172 @@ class Weiqi():
                 deadList += copy.deepcopy(midvar)
         return deadList
 
-
     # 落子后，依次判断四周是否有棋子被杀死，并返回死棋位置列表
     def get_deadlist(self, x, y):
         deadlist = []
         for i in [-1, 1]:
-            if self.chessboard[y][x + i] == (2 if self.present == 0 else 1) and ([x + i, y] not in deadlist):
-                killList = self.if_dead([[x + i, y]], (2 if self.present == 0 else 1), [x + i, y])
+            if self.chessboard[y][x + i] == (2 if self.backend.present == 0 else 1) and ([x + i, y] not in deadlist):
+                killList = self.if_dead([[x + i, y]], (2 if self.backend.present == 0 else 1), [x + i, y])
                 if not killList == False:
                     deadlist += copy.deepcopy(killList)
-            if self.chessboard[y + i][x] == (2 if self.present == 0 else 1) and ([x, y + i] not in deadlist):
-                killList = self.if_dead([[x, y + i]], (2 if self.present == 0 else 1), [x, y + i])
+            if self.chessboard[y + i][x] == (2 if self.backend.present == 0 else 1) and ([x, y + i] not in deadlist):
+                killList = self.if_dead([[x, y + i]], (2 if self.backend.present == 0 else 1), [x, y + i])
                 if not killList == False:
                     deadlist += copy.deepcopy(killList)
         return deadlist
+
+    def getDown(self, x, y):
+        # 判断位置是否已经被占据
+        if self.chessboard[y][x] == 0:
+            # 未被占据，则尝试占据，获得占据后能杀死的棋子列表
+            self.chessboard[y][x] = self.backend.present + 1
+            deadlist = self.get_deadlist(x, y)
+            self.backend.kill(deadlist)
+            # 判断是否重复棋局
+            if not self.last_2_chessboard == self.chessboard:
+                # 判断是否属于有气和杀死对方其中之一
+                if len(deadlist) > 0 or self.if_dead([[x, y]], self.backend.present + 1, [x, y]) == False:
+                    # 当不重复棋局，且属于有气和杀死对方其中之一时，落下棋子有效
+                    self.last_3_chessboard = copy.deepcopy(self.last_2_chessboard)
+                    self.last_2_chessboard = copy.deepcopy(self.last_1_chessboard)
+                    self.last_1_chessboard = copy.deepcopy(self.chessboard)
+                    return "落子有效"
+                else:
+                    # 不属于杀死对方或有气，则判断为无气，警告并弹出警告框
+                    self.chessboard[y][x] = 0
+                    return "无气"
+            else:
+                # 重复棋局，警告打劫
+                self.chessboard[y][x] = 0
+                self.backend.recover(deadlist, (1 if self.backend.present == 0 else 0))
+                return "打劫"
+        else:
+            # 覆盖，声音警告
+            return "覆盖"
+
+class Weiqi():
+    def __init__(self, chessboard_size=9):
+        # 模式，九路棋：9，十三路棋：13，十九路棋：19
+        self.mode_num = chessboard_size
+        self.window_size = 1.8
+        self.dd = 360 * self.window_size / (self.mode_num - 1)  # 棋盘每格的边长
+        # 棋盘的相对矫正比例
+        self.p = 1 if self.mode_num == 9 else (2 / 3 if self.mode_num == 13 else 4 / 9)
+        self.window = Window(self, self.window_size, self.dd, self.p, chessboard_size)
+        self.board = weiqi_board(self, self.window_size, self.dd, self.p, chessboard_size)
+        # 当前轮到的玩家，黑：0，白：1，执黑先行
+        self.present = 0
+        # 初始停止，点击“开始游戏”运行游戏
+        self.stop = True
+        # 悔棋次数，次数大于0才可悔棋，初始置0（初始不能悔棋），悔棋后置0，下棋或弃手时恢复为1，以禁止连续悔棋
+        self.regretchance = 0
+
+    # 开始游戏函数
+    def start(self):
+        # 图标处理
+        self.window.start(self.present)
+        # 开始标志，解除stop
+        self.stop = None
+
+    # 放弃一手函数，跳过落子环节
+    def passme(self):
+        # 悔棋恢复
+        if not self.regretchance == 1:
+            self.regretchance += 1
+        else:
+            self.window.regretButton['state'] = NORMAL
+        # 拷贝棋盘状态，记录前三次棋局
+        self.board.passme()
+        self.window.canvas_bottom.delete('image_added_sign')
+        # 轮到下一玩家
+        self.window.player_change(self.present)
+        self.present = 1 - self.present
+
+    # 悔棋函数，可悔棋一回合，下两回合不可悔棋
+    def regret(self):
+        # 判定是否可以悔棋，以前第三手棋局复原棋盘
+        if self.regretchance == 1:
+            self.regretchance = 0
+            self.window.regretButton['state'] = DISABLED
+            self.window.regret(self.present)  # 修改UI
+            list_of_b, list_of_w = self.board.regret()
+            self.recover(list_of_b, 0)
+            self.recover(list_of_w, 1)
+
+    # 重新加载函数,删除图片，序列归零，设置一些初始参数，点击“重新开始”时调用
+    def reload(self):
+        if self.stop == 1:
+            self.stop = 0
+        self.regretchance = 0
+        self.present = 0
+        self.window.reload()
+        self.board.reload()
+
+    # 落子，并驱动玩家的轮流下棋行为
+    def getDown(self, event):
+        if not self.stop:
+            # 先找到最近格点
+            if (20 * self.window_size - self.dd * 0.4 < event.x < self.dd * 0.4 + 380 * self.window_size) and (
+                    20 * self.window_size - self.dd * 0.4 < event.y < self.dd * 0.4 + 380 * self.window_size):
+                dx = (event.x - 20 * self.window_size) % self.dd
+                dy = (event.y - 20 * self.window_size) % self.dd
+                x = int((event.x - 20 * self.window_size - dx) / self.dd + round(dx / self.dd) + 1)
+                y = int((event.y - 20 * self.window_size - dy) / self.dd + round(dy / self.dd) + 1)
+                # 判断位置是否已经被占据
+                result = self.board.getDown(x, y)
+                if result != "覆盖":
+                    self.window.add_image(
+                        event.x - dx + round(dx / self.dd) * self.dd + 4 * self.p,
+                        event.y - dy + round(dy / self.dd) * self.dd - 5 * self.p,
+                        x, y, self.present
+                    )
+                    if result == "落子有效":
+                        # 当不重复棋局，且属于有气和杀死对方其中之一时，落下棋子有效
+                        if not self.regretchance == 1:
+                            self.regretchance += 1
+                        else:
+                            self.window.regretButton['state'] = NORMAL
+                        # 删除上次的标记，重新创建标记
+                        self.window.create_sign(
+                            event.x - dx + round(dx / self.dd) * self.dd + 0.5 * self.dd,
+                            event.y - dy + round(dy / self.dd) * self.dd + 0.5 * self.dd,
+                            event.x - dx + round(dx / self.dd) * self.dd - 0.5 * self.dd,
+                            event.y - dy + round(dy / self.dd) * self.dd - 0.5 * self.dd
+                        )
+                        # 轮到下一玩家
+                        self.window.player_change(self.present)
+                        self.present = 1 - self.present
+                    elif result == "无气":
+                        self.window.canvas_bottom.delete('position' + str(x) + str(y))
+                        self.window.bell()
+                        self.window.showwarningbox('无气', "你被包围了！")
+                    elif result == "打劫":
+                        self.window.canvas_bottom.delete('position' + str(x) + str(y))
+                        self.window.bell()
+                        self.window.showwarningbox("打劫", "此路不通！")
+                else:
+                    # 覆盖，声音警告
+                    self.window.bell()
+            else:
+                # 超出边界，声音警告
+                self.window.bell()
 
     # 恢复位置列表list_to_recover为b_or_w指定的棋子
     def recover(self, list_to_recover, b_or_w):
         if len(list_to_recover) > 0:
             for i in range(len(list_to_recover)):
-                self.chessboard[list_to_recover[i][1]][list_to_recover[i][0]] = b_or_w + 1
+                self.board.chessboard[list_to_recover[i][1]][list_to_recover[i][0]] = b_or_w + 1
                 self.window.add_image(
                     20 * self.window_size + (list_to_recover[i][0] - 1) * self.dd + 4 * self.p,
                     20 * self.window_size + (list_to_recover[i][1] - 1) * self.dd - 5 * self.p,
                     list_to_recover[i][0], list_to_recover[i][1], b_or_w
                 )
 
-
     # 杀死位置列表killList中的棋子，即删除图片，位置值置0
     def kill(self, killList):
         if len(killList) > 0:
             for i in range(len(killList)):
-                self.chessboard[killList[i][1]][killList[i][0]] = 0
+                self.board.chessboard[killList[i][1]][killList[i][0]] = 0
                 self.window.canvas_bottom.delete('position' + str(killList[i][0]) + str(killList[i][1]))
 
     # 键盘快捷键退出游戏
