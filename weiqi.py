@@ -30,8 +30,11 @@ class Window(Tk):
         # 窗口大小
         self.geometry(str(int(600 * self.window_size)) + 'x' + str(int(400 * self.window_size)))
         # 画布控件，作为容器
-        self.canvas_bottom = Canvas(self, bg='#369', bd=0, width=600 * self.window_size, height=400 * self.window_size)
+        self.canvas_bottom = Canvas(self, bg='#38A', bd=0, width=600 * self.window_size, height=400 * self.window_size)
         self.canvas_bottom.place(x=0, y=0)
+        # 切换游戏类型按钮
+        self.changeButton = Button(self, text=('五子棋' if self.backend.chess_type == 0 else '围棋'), command=self.backend.newGame3)
+        self.changeButton.place(x=480 * self.window_size, y=175 * self.window_size)
         # 几个功能按钮
         self.startButton = Button(self, text='开始游戏', command=self.backend.start)
         self.startButton.place(x=480 * self.window_size, y=200 * self.window_size)
@@ -315,8 +318,133 @@ class weiqi_board:
             # 覆盖，声音警告
             return "覆盖"
 
+
+class wuziqi_board:
+    def __init__(self, backend, window_size, dd, p, chessboard_size=9):
+        self.backend = backend
+        # 模式，九路棋：9，十三路棋：13，十九路棋：19
+        self.mode_num = chessboard_size
+        self.window_size = window_size
+        self.dd = dd  # 棋盘每格的边长
+        # 棋盘的相对矫正比例
+        self.p = p
+        # 棋盘阵列,超过边界：-1，无子：0，黑棋：1，白棋：2
+        self.chessboard = [[0 for i in range(self.mode_num + 2)] for i in range(self.mode_num + 2)]
+        for m in range(self.mode_num + 2):
+            for n in range(self.mode_num + 2):
+                if m == 0 or n == 0 or m == self.mode_num + 1 or n == self.mode_num + 1:
+                    self.chessboard[m][n] = -1
+        # 拷贝三份棋盘“快照”，悔棋和判断“打劫”时需要作参考
+        self.last_3_chessboard = copy.deepcopy(self.chessboard)
+        self.last_2_chessboard = copy.deepcopy(self.chessboard)
+        self.last_1_chessboard = copy.deepcopy(self.chessboard)
+
+    def passme(self):
+        # 拷贝棋盘状态，记录前三次棋局
+        self.last_3_chessboard = copy.deepcopy(self.last_2_chessboard)
+        self.last_2_chessboard = copy.deepcopy(self.last_1_chessboard)
+        self.last_1_chessboard = copy.deepcopy(self.chessboard)
+
+    def regret(self):
+        list_of_b = []
+        list_of_w = []
+        for m in range(1, self.mode_num + 1):
+            for n in range(1, self.mode_num + 1):
+                self.chessboard[m][n] = 0
+        for m in range(len(self.last_3_chessboard)):
+            for n in range(len(self.last_3_chessboard[m])):
+                if self.last_3_chessboard[m][n] == 1:
+                    list_of_b += [[n, m]]
+                elif self.last_3_chessboard[m][n] == 2:
+                    list_of_w += [[n, m]]
+        self.last_1_chessboard = copy.deepcopy(self.last_3_chessboard)
+        for m in range(1, self.mode_num + 1):
+            for n in range(1, self.mode_num + 1):
+                self.last_2_chessboard[m][n] = 0
+                self.last_3_chessboard[m][n] = 0
+        return list_of_b, list_of_w
+
+    def reload(self):
+        for m in range(1, self.mode_num + 1):
+            for n in range(1, self.mode_num + 1):
+                self.chessboard[m][n] = 0
+                self.last_3_chessboard[m][n] = 0
+                self.last_2_chessboard[m][n] = 0
+                self.last_1_chessboard[m][n] = 0
+        return
+
+    def getDown(self, x, y):
+        # 判断位置是否已经被占据
+        if self.chessboard[y][x] == 0:
+            # 未被占据，则尝试占据，获得占据后能杀死的棋子列表
+            self.chessboard[y][x] = self.backend.present + 1
+            self.last_3_chessboard = copy.deepcopy(self.last_2_chessboard)
+            self.last_2_chessboard = copy.deepcopy(self.last_1_chessboard)
+            self.last_1_chessboard = copy.deepcopy(self.chessboard)
+            return "落子有效"
+        else:
+            # 覆盖，声音警告
+            return "覆盖"
+
+    def check_win(self):
+        win_flag, winner = 0, -1
+        n = self.mode_num
+        for i in range(1, n+1):
+            for j in range(1, n+1):
+                if self.chessboard[i][j] != 0:
+                    # 检查 每行 是否有连续五个同一颜色的棋子
+                    if i + 1 < n+1 and i + 2 < n+1 and i + 3 < n+1 and i + 4 < n+1:
+                        if self.chessboard[i][j] == self.chessboard[i + 1][j] and \
+                                self.chessboard[i][j] == self.chessboard[i + 2][j] and \
+                                self.chessboard[i][j] == self.chessboard[i + 3][j] and \
+                                self.chessboard[i][j] == self.chessboard[i + 4][j]:
+                            win_flag = 1
+                            winner = self.chessboard[i][j]
+                            break
+
+                    # 检查 每列 是否有连续五个同一颜色的棋子
+                    if j + 1 < n+1 and j + 2 < n+1 and j + 3 < n+1 and j + 4 < n+1:
+                        if self.chessboard[i][j] == self.chessboard[i][j + 1] and \
+                                self.chessboard[i][j] == self.chessboard[i][j + 2] and \
+                                self.chessboard[i][j] == self.chessboard[i][j + 3] and \
+                                self.chessboard[i][j] == self.chessboard[i][j + 4]:
+                            win_flag = 1
+                            winner = self.chessboard[i][j]
+                            break
+
+                    # 检查 斜线上 是否有连续五个同一颜色的棋子
+                    if i + 1 < n+1 and i + 2 < n+1 and i + 3 < n+1 and i + 4 < n+1 \
+                            and j + 1 < n+1 and j + 2 < n+1 and j + 3 < n+1 and j + 4 < n+1:
+                        if self.chessboard[i][j] == self.chessboard[i + 1][j + 1] and \
+                                self.chessboard[i][j] == self.chessboard[i + 2][j + 2] and \
+                                self.chessboard[i][j] == self.chessboard[i + 3][j + 3] and \
+                                self.chessboard[i][j] == self.chessboard[i + 4][j + 4]:
+                            win_flag = 1
+                            winner = self.chessboard[i][j]
+                            break
+                    if i - 1 > 0 and i - 2 > 0 and i - 3 > 0 and i - 4 > 0 \
+                            and j + 1 < n+1 and j + 2 < n+1 and j + 3 < n+1 and j + 4 < n+1:
+                        if self.chessboard[i][j] == self.chessboard[i - 1][j + 1] and \
+                                self.chessboard[i][j] == self.chessboard[i - 2][j + 2] and \
+                                self.chessboard[i][j] == self.chessboard[i - 3][j + 3] and \
+                                self.chessboard[i][j] == self.chessboard[i - 4][j + 4]:
+                            win_flag = 1
+                            winner = self.chessboard[i][j]
+                            break
+        tie = True
+        for i in range(1, n + 1):
+            for j in range(1, n + 1):
+                if self.chessboard[i][j] == 0:
+                    return win_flag, winner
+        if tie:
+            win_flag = 2
+        return win_flag, winner
+
+
 class Weiqi():
-    def __init__(self, chessboard_size=9):
+    def __init__(self, chessboard_size=9, chess_type=0):
+        # 种类：围棋：0，五子棋：1
+        self.chess_type = chess_type
         # 模式，九路棋：9，十三路棋：13，十九路棋：19
         self.mode_num = chessboard_size
         self.window_size = 1.8
@@ -324,7 +452,10 @@ class Weiqi():
         # 棋盘的相对矫正比例
         self.p = 1 if self.mode_num == 9 else (2 / 3 if self.mode_num == 13 else 4 / 9)
         self.window = Window(self, self.window_size, self.dd, self.p, chessboard_size)
-        self.board = weiqi_board(self, self.window_size, self.dd, self.p, chessboard_size)
+        if self.chess_type == 0:
+            self.board = weiqi_board(self, self.window_size, self.dd, self.p, chessboard_size)
+        else:
+            self.board = wuziqi_board(self, self.window_size, self.dd, self.p, chessboard_size)
         # 当前轮到的玩家，黑：0，白：1，执黑先行
         self.present = 0
         # 初始停止，点击“开始游戏”运行游戏
@@ -391,8 +522,33 @@ class Weiqi():
                         event.y - dy + round(dy / self.dd) * self.dd - 5 * self.p,
                         x, y, self.present
                     )
-                    if result == "落子有效":
-                        # 当不重复棋局，且属于有气和杀死对方其中之一时，落下棋子有效
+                    if self.chess_type == 0:  # 围棋落子
+                        if result == "落子有效":
+                            # 当不重复棋局，且属于有气和杀死对方其中之一时，落下棋子有效
+                            if not self.regretchance == 1:
+                                self.regretchance += 1
+                            else:
+                                self.window.regretButton['state'] = NORMAL
+                            # 删除上次的标记，重新创建标记
+                            self.window.create_sign(
+                                event.x - dx + round(dx / self.dd) * self.dd + 0.5 * self.dd,
+                                event.y - dy + round(dy / self.dd) * self.dd + 0.5 * self.dd,
+                                event.x - dx + round(dx / self.dd) * self.dd - 0.5 * self.dd,
+                                event.y - dy + round(dy / self.dd) * self.dd - 0.5 * self.dd
+                            )
+                            # 轮到下一玩家
+                            self.window.player_change(self.present)
+                            self.present = 1 - self.present
+                        elif result == "无气":
+                            self.window.canvas_bottom.delete('position' + str(x) + str(y))
+                            self.window.bell()
+                            self.window.showwarningbox('无气', "你被包围了！")
+                        elif result == "打劫":
+                            self.window.canvas_bottom.delete('position' + str(x) + str(y))
+                            self.window.bell()
+                            self.window.showwarningbox("打劫", "此路不通！")
+                    else:  #  五子棋落子
+                        # 落下棋子有效
                         if not self.regretchance == 1:
                             self.regretchance += 1
                         else:
@@ -407,14 +563,14 @@ class Weiqi():
                         # 轮到下一玩家
                         self.window.player_change(self.present)
                         self.present = 1 - self.present
-                    elif result == "无气":
-                        self.window.canvas_bottom.delete('position' + str(x) + str(y))
-                        self.window.bell()
-                        self.window.showwarningbox('无气', "你被包围了！")
-                    elif result == "打劫":
-                        self.window.canvas_bottom.delete('position' + str(x) + str(y))
-                        self.window.bell()
-                        self.window.showwarningbox("打劫", "此路不通！")
+                        win, winner = self.board.check_win()
+                        if win:
+                            self.stop = True
+                            if win == 1:
+                                message = ("黑子" if winner == 1 else "白子") + "胜利！"
+                            else:
+                                message = "平局，无子可下"
+                            self.window.showwarningbox("游戏结束", message)
                 else:
                     # 覆盖，声音警告
                     self.window.bell()
@@ -457,17 +613,24 @@ class Weiqi():
         newApp = True
         self.window.quit()
 
+    def newGame3(self):
+        global chess_type, newApp
+        chess_type = 1 - chess_type
+        newApp = True
+        self.window.quit()
+
 
 # 声明全局变量，用于新建Application对象时切换成不同模式的游戏
-global mode_num, newApp
+global mode_num, newApp, chess_type
 mode_num = 9
 newApp = False
+chess_type = 0  # 0表示围棋，1表示五子棋
 if __name__ == '__main__':
     # 循环，直到不切换游戏模式
     while True:
         newApp = False
-        app = Weiqi(mode_num)
-        app.window.title('围棋')
+        app = Weiqi(mode_num, chess_type)
+        app.window.title('围棋' if chess_type == 0 else '五子棋')
         app.window.mainloop()
         if newApp:
             app.window.destroy()
