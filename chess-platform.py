@@ -174,15 +174,11 @@ class Window(Tk):
         self.canvas_bottom.addtag_withtag('image', self.image_added_sign)
         self.canvas_bottom.addtag_withtag('image_added_sign', self.image_added_sign)
 
-class weiqi_board:
-    def __init__(self, backend, window_size, dd, p, chessboard_size=9):
-        self.backend = backend
+
+class board:
+    def __init__(self, chessboard_size=9):
         # 模式，九路棋：9，十三路棋：13，十九路棋：19
         self.mode_num = chessboard_size
-        self.window_size = window_size
-        self.dd = dd  # 棋盘每格的边长
-        # 棋盘的相对矫正比例
-        self.p = p
         # 棋盘阵列,超过边界：-1，无子：0，黑棋：1，白棋：2
         self.chessboard = [[0 for i in range(self.mode_num + 2)] for i in range(self.mode_num + 2)]
         for m in range(self.mode_num + 2):
@@ -193,7 +189,6 @@ class weiqi_board:
         self.last_3_chessboard = copy.deepcopy(self.chessboard)
         self.last_2_chessboard = copy.deepcopy(self.chessboard)
         self.last_1_chessboard = copy.deepcopy(self.chessboard)
-
     def passme(self):
         # 拷贝棋盘状态，记录前三次棋局
         self.last_3_chessboard = copy.deepcopy(self.last_2_chessboard)
@@ -227,6 +222,18 @@ class weiqi_board:
                 self.last_2_chessboard[m][n] = 0
                 self.last_1_chessboard[m][n] = 0
         return
+
+
+class weiqi_board(board):
+    def __init__(self, backend, window_size, dd, p, chessboard_size=9):
+        super().__init__(chessboard_size)
+        self.backend = backend
+        # 模式，九路棋：9，十三路棋：13，十九路棋：19
+        self.mode_num = chessboard_size
+        self.window_size = window_size
+        self.dd = dd  # 棋盘每格的边长
+        # 棋盘的相对矫正比例
+        self.p = p
 
     # 判断棋子（种类为yourChessman，位置为yourPosition）是否无气（死亡），有气则返回False，无气则返回无气棋子的列表
     # 本函数是游戏规则的关键，初始deadlist只包含了自己的位置，每次执行时，函数尝试寻找yourPosition周围有没有空的位置，有则结束，返回False代表有气；
@@ -319,8 +326,9 @@ class weiqi_board:
             return "覆盖"
 
 
-class wuziqi_board:
+class wuziqi_board(board):
     def __init__(self, backend, window_size, dd, p, chessboard_size=9):
+        super().__init__(chessboard_size)
         self.backend = backend
         # 模式，九路棋：9，十三路棋：13，十九路棋：19
         self.mode_num = chessboard_size
@@ -328,50 +336,6 @@ class wuziqi_board:
         self.dd = dd  # 棋盘每格的边长
         # 棋盘的相对矫正比例
         self.p = p
-        # 棋盘阵列,超过边界：-1，无子：0，黑棋：1，白棋：2
-        self.chessboard = [[0 for i in range(self.mode_num + 2)] for i in range(self.mode_num + 2)]
-        for m in range(self.mode_num + 2):
-            for n in range(self.mode_num + 2):
-                if m == 0 or n == 0 or m == self.mode_num + 1 or n == self.mode_num + 1:
-                    self.chessboard[m][n] = -1
-        # 拷贝三份棋盘“快照”，悔棋和判断“打劫”时需要作参考
-        self.last_3_chessboard = copy.deepcopy(self.chessboard)
-        self.last_2_chessboard = copy.deepcopy(self.chessboard)
-        self.last_1_chessboard = copy.deepcopy(self.chessboard)
-
-    def passme(self):
-        # 拷贝棋盘状态，记录前三次棋局
-        self.last_3_chessboard = copy.deepcopy(self.last_2_chessboard)
-        self.last_2_chessboard = copy.deepcopy(self.last_1_chessboard)
-        self.last_1_chessboard = copy.deepcopy(self.chessboard)
-
-    def regret(self):
-        list_of_b = []
-        list_of_w = []
-        for m in range(1, self.mode_num + 1):
-            for n in range(1, self.mode_num + 1):
-                self.chessboard[m][n] = 0
-        for m in range(len(self.last_3_chessboard)):
-            for n in range(len(self.last_3_chessboard[m])):
-                if self.last_3_chessboard[m][n] == 1:
-                    list_of_b += [[n, m]]
-                elif self.last_3_chessboard[m][n] == 2:
-                    list_of_w += [[n, m]]
-        self.last_1_chessboard = copy.deepcopy(self.last_3_chessboard)
-        for m in range(1, self.mode_num + 1):
-            for n in range(1, self.mode_num + 1):
-                self.last_2_chessboard[m][n] = 0
-                self.last_3_chessboard[m][n] = 0
-        return list_of_b, list_of_w
-
-    def reload(self):
-        for m in range(1, self.mode_num + 1):
-            for n in range(1, self.mode_num + 1):
-                self.chessboard[m][n] = 0
-                self.last_3_chessboard[m][n] = 0
-                self.last_2_chessboard[m][n] = 0
-                self.last_1_chessboard[m][n] = 0
-        return
 
     def getDown(self, x, y):
         # 判断位置是否已经被占据
@@ -441,7 +405,7 @@ class wuziqi_board:
         return win_flag, winner
 
 
-class Weiqi():
+class Chess:
     def __init__(self, chessboard_size=9, chess_type=0):
         # 种类：围棋：0，五子棋：1
         self.chess_type = chess_type
@@ -547,7 +511,7 @@ class Weiqi():
                             self.window.canvas_bottom.delete('position' + str(x) + str(y))
                             self.window.bell()
                             self.window.showwarningbox("打劫", "此路不通！")
-                    else:  #  五子棋落子
+                    else:  # 五子棋落子
                         # 落下棋子有效
                         if not self.regretchance == 1:
                             self.regretchance += 1
@@ -629,7 +593,7 @@ if __name__ == '__main__':
     # 循环，直到不切换游戏模式
     while True:
         newApp = False
-        app = Weiqi(mode_num, chess_type)
+        app = Chess(mode_num, chess_type)
         app.window.title('围棋' if chess_type == 0 else '五子棋')
         app.window.mainloop()
         if newApp:
