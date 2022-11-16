@@ -1,9 +1,10 @@
 # 导入GUI模块
 from tkinter import *
 from tkinter.ttk import *
+import tkinter.messagebox
 
 import copy
-import tkinter.messagebox
+
 
 class Window(Tk):
     def __init__(self, backend, window_size, dd, p, chessboard_size=9):
@@ -189,6 +190,7 @@ class board:
         self.last_3_chessboard = copy.deepcopy(self.chessboard)
         self.last_2_chessboard = copy.deepcopy(self.chessboard)
         self.last_1_chessboard = copy.deepcopy(self.chessboard)
+
     def passme(self):
         # 拷贝棋盘状态，记录前三次棋局
         self.last_3_chessboard = copy.deepcopy(self.last_2_chessboard)
@@ -234,6 +236,8 @@ class weiqi_board(board):
         self.dd = dd  # 棋盘每格的边长
         # 棋盘的相对矫正比例
         self.p = p
+        # 是否上一步跳过
+        self.passed = False
 
     # 判断棋子（种类为yourChessman，位置为yourPosition）是否无气（死亡），有气则返回False，无气则返回无气棋子的列表
     # 本函数是游戏规则的关键，初始deadlist只包含了自己的位置，每次执行时，函数尝试寻找yourPosition周围有没有空的位置，有则结束，返回False代表有气；
@@ -311,6 +315,7 @@ class weiqi_board(board):
                     self.last_3_chessboard = copy.deepcopy(self.last_2_chessboard)
                     self.last_2_chessboard = copy.deepcopy(self.last_1_chessboard)
                     self.last_1_chessboard = copy.deepcopy(self.chessboard)
+                    self.passed = False  # 清除弃子标记
                     return "落子有效"
                 else:
                     # 不属于杀死对方或有气，则判断为无气，警告并弹出警告框
@@ -324,6 +329,64 @@ class weiqi_board(board):
         else:
             # 覆盖，声音警告
             return "覆盖"
+
+    def check_win(self):
+        komi = 7.5  # 贴目采用中国规则
+        blacks = []
+        whites = []
+        black_territory = set()
+        white_territory = set()
+        neutral_territory = set()
+        visited_stones = None
+
+        # results={} #存放空子的地域属于哪个势力，有三种：黑、白、中立
+        def findBoarders(stone, visited_stones=None):
+            boarders = set()
+            neighbours = [  # 按下、左、上、右顺时针的顺序
+                (stone[0]-1, stone[1]),
+                (stone[0], stone[1]-1),
+                (stone[0]+1, stone[1]),
+                (stone[0], stone[1]+1)
+            ]
+            for i in neighbours:
+                if not (1 <= i[0] <= self.mode_num and 1 <= i[1] <= self.mode_num) or i in visited_stones:
+                    continue
+                if self.chessboard[i[0]][i[1]] == 0:  # 当前点位无子
+                    visited_stones.add(i)
+                    boarders |= findBoarders(i, visited_stones)
+                elif self.chessboard[i[0]][i[1]] == 1:  # 当前点位为黑子
+                    boarders.add(1)
+                elif self.chessboard[i[0]][i[1]] == 2:  # 当前点位为白子
+                    boarders.add(2)
+                else:
+                    pass
+            return boarders
+
+        # 组个点来看
+        for i in range(1, self.mode_num+1):
+            for j in range(1, self.mode_num+1):
+                if self.chessboard[i][j] == 0:
+                    if (i, j) in black_territory or (i, j) in white_territory or (i, j) in neutral_territory:
+                        continue
+                    else:
+                        visited_stones = {(i, j)}
+                        boarders = findBoarders((i, j), visited_stones)
+                        if len(boarders) != 1:
+                            neutral_territory |= visited_stones
+                        else:
+                            if 1 in boarders:  # 若边界被黑子占领
+                                black_territory |= visited_stones
+                            else:  # 若边界被白子占领
+                                white_territory |= visited_stones
+                elif self.chessboard[i][j] == 1:
+                    blacks.append((i, j))
+                elif self.chessboard[i][j] == 2:
+                    whites.append((i, j))
+                else:
+                    pass
+        black_counts = len(blacks) + len(black_territory)
+        white_counts = len(whites) + len(white_territory)
+        return black_counts - (white_counts + komi)
 
 
 class wuziqi_board(board):
@@ -416,6 +479,8 @@ class Chess:
         # 棋盘的相对矫正比例
         self.p = 1 if self.mode_num == 9 else (2 / 3 if self.mode_num == 13 else 4 / 9)
         self.window = Window(self, self.window_size, self.dd, self.p, chessboard_size)
+        if self.chess_type == 1:
+            self.window.passmeButton['state'] = DISABLED  # 五子棋没有弃子
         if self.chess_type == 0:
             self.board = weiqi_board(self, self.window_size, self.dd, self.p, chessboard_size)
         else:
@@ -444,6 +509,16 @@ class Chess:
         # 拷贝棋盘状态，记录前三次棋局
         self.board.passme()
         self.window.canvas_bottom.delete('image_added_sign')
+        # 围棋连续弃子则结算
+        if self.chess_type == 0:
+            if not self.board.passed:
+                self.board.passed = True
+            else:
+                result = self.board.check_win()
+                self.stop = True
+                message = ("黑子" if result > 0 else "白子") + "胜利！"  # 黑子给白子贴3.75目，该规则下无法平局
+                self.window.showwarningbox("游戏结束", message)
+
         # 轮到下一玩家
         self.window.player_change(self.present)
         self.present = 1 - self.present
