@@ -144,8 +144,8 @@ class Window(Tk):
     def shadow(self, event):
         if not self.backend.stop:
             # 找到最近格点，在当前位置靠近的格点出显示棋子图片，并删除上一位置的棋子图片
-            if (20 * self.window_size < event.x < 380 * self.window_size) \
-                    and (20 * self.window_size < event.y < 380 * self.window_size):
+            if (10 * self.window_size < event.x < 390 * self.window_size) \
+                    and (10 * self.window_size < event.y < 390 * self.window_size):  # 稍微放宽显示的范围
                 dx = (event.x - 20 * self.window_size) % self.dd
                 dy = (event.y - 20 * self.window_size) % self.dd
                 self.cross = self.canvas_bottom.create_image(
@@ -156,6 +156,8 @@ class Window(Tk):
                 if self.cross_last != None:
                     self.canvas_bottom.delete(self.cross_last)
                 self.cross_last = self.cross
+            else:  # 出棋盘也不显示
+                self.canvas_bottom.delete(self.cross_last)
 
     # 警告消息框，接受标题和警告信息
     def showwarningbox(self, title, message):
