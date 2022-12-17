@@ -40,7 +40,13 @@ class Window(Tk):
         self.loadButton = Button(self, text='读取棋局', command=self.load)
         self.loadButton.place(x=500 * self.window_size, y=200 * self.window_size)
         # 切换游戏类型按钮
-        self.changeButton = Button(self, text=('五子棋' if self.backend.chess_type == 0 else '围棋'), command=self.backend.newGame3)
+        if self.backend.chess_type == 0:
+            next_game = '五子棋'
+        elif self.backend.chess_type == 1:
+            next_game = '黑白棋'
+        else:
+            next_game = '围棋'
+        self.changeButton = Button(self, text=(next_game), command=self.backend.newGame3)
         self.changeButton.place(x=440 * self.window_size, y=175 * self.window_size)
         # 几个功能按钮
         self.startButton = Button(self, text='开始游戏', command=self.backend.start)

@@ -1,17 +1,20 @@
 from Window import *
 from boards import *
+from heibai_board import *
 import Momento
 
 class Chess:
     def __init__(self, client, chessboard_size=9, chess_type=0):
         # 客户端
         self.client = client
-        # 种类：围棋：0，五子棋：1
+        # 种类：围棋：0，五子棋：1. 黑白棋：2
         self.chess_type = chess_type
         # 模式，九路棋：9，十三路棋：13，十九路棋：19
         self.mode_num = chessboard_size
         self.window_size = 1.8
         self.dd = 360 * self.window_size / (self.mode_num - 1)  # 棋盘每格的边长
+        # 当前轮到的玩家，黑：0，白：1，执黑先行
+        self.present = 0
         # 棋盘的相对矫正比例
         self.p = 1 if self.mode_num == 9 else (2 / 3 if self.mode_num == 13 else 4 / 9)
         self.window = Window(self, self.window_size, self.dd, self.p, chessboard_size)
@@ -19,10 +22,11 @@ class Chess:
             self.window.passmeButton['state'] = DISABLED  # 五子棋没有弃子
         if self.chess_type == 0:
             self.board = weiqi_board(self, self.window_size, self.dd, self.p, chessboard_size)
-        else:
+        elif self.chess_type == 1:
             self.board = wuziqi_board(self, self.window_size, self.dd, self.p, chessboard_size)
-        # 当前轮到的玩家，黑：0，白：1，执黑先行
-        self.present = 0
+        else:
+            self.board = heibai_board(self, self.window_size, self.dd, self.p, chessboard_size)
+            self.board.init()
         # 初始停止，点击“开始游戏”运行游戏
         self.stop = True
         # 悔棋次数，次数大于0才可悔棋，初始置0（初始不能悔棋），悔棋后置0，下棋或弃手时恢复为1，以禁止连续悔棋
@@ -58,6 +62,8 @@ class Chess:
         # 轮到下一玩家
         self.window.player_change(self.present)
         self.present = 1 - self.present
+        if self.chess_type == 2:  # 黑白棋更新可下位置，要在玩家交换后更新
+            self.board.get_avalible_drop()
 
     # 悔棋函数，可悔棋一回合，下两回合不可悔棋
     def regret(self):
@@ -69,6 +75,8 @@ class Chess:
             list_of_b, list_of_w = self.board.regret()
             self.recover(list_of_b, 0)
             self.recover(list_of_w, 1)
+            if self.chess_type == 2:  # 黑白棋更新可下位置，要在玩家交换后更新
+                self.board.get_avalible_drop()
 
     # 重新加载函数,删除图片，序列归零，设置一些初始参数，点击“重新开始”时调用
     def reload(self):
@@ -122,7 +130,7 @@ class Chess:
                             self.window.canvas_bottom.delete('position' + str(x) + str(y))
                             self.window.bell()
                             self.window.showwarningbox("打劫", "此路不通！")
-                    else:  # 五子棋落子
+                    else:  # 五子棋黑白棋落子
                         # 落下棋子有效
                         if not self.regretchance == 1:
                             self.regretchance += 1
@@ -138,6 +146,8 @@ class Chess:
                         # 轮到下一玩家
                         self.window.player_change(self.present)
                         self.present = 1 - self.present
+                        if self.chess_type == 2:  # 黑白棋更新可下位置，要在玩家交换后更新
+                            self.board.get_avalible_drop()
                         win, winner = self.board.check_win()
                         if win:
                             self.stop = True
@@ -171,6 +181,11 @@ class Chess:
                 self.board.chessboard[killList[i][1]][killList[i][0]] = 0
                 self.window.canvas_bottom.delete('position' + str(killList[i][0]) + str(killList[i][1]))
 
+    # 只删图片,给黑白棋用的
+    def delete_image(self, killList):
+        if len(killList) > 0:
+            for i in range(len(killList)):
+                self.window.canvas_bottom.delete('position' + str(killList[i][1]) + str(killList[i][0]))
     # 认输
     def giveup(self):
         self.stop = True
@@ -181,7 +196,7 @@ class Chess:
     def keyboardQuit(self, event):
         self.window.quit()
 
-    # 以下两个函数修改全局变量值，newApp使主函数循环，以建立不同参数的对象
+    # 以下函数修改Client变量值，newApp使主函数循环，以建立不同参数的对象
     def newGame1(self):
         self.client.mode_num = (13 if self.mode_num == 9 else 9)
         self.client.newApp = True
@@ -193,7 +208,7 @@ class Chess:
         self.window.quit()
 
     def newGame3(self):
-        self.client.chess_type = 1 - self.client.chess_type
+        self.client.chess_type = (self.client.chess_type+1)%3
         self.client.newApp = True
         self.window.quit()
 
@@ -207,23 +222,37 @@ class Chess:
             return
         self.reload()
         self.board.chessboard = Momento.load(filepath)
-        for i in range(1, self.mode_num+1):
-            for j in range(1, self.mode_num+1):
+        self.updateboard()
+        if self.chess_type == 2:  # 黑白棋更新可下位置，要在玩家交换后更新
+            self.board.get_avalible_drop()
+
+    def updateboard(self, addList=None):
+        if addList == None:
+            for i in range(1, self.mode_num+1):
+                for j in range(1, self.mode_num+1):
+                    if self.board.chessboard[i][j] != 0:
+                        self.window.add_image(
+                            21.5 * self.window_size + (j-1) * self.dd,
+                            19 * self.window_size + (i-1) * self.dd,
+                            j, i,
+                            self.board.chessboard[i][j]-1
+                        )
+        else:
+            for i, j in addList:
                 if self.board.chessboard[i][j] != 0:
                     self.window.add_image(
-                        21.5 * self.window_size + (j-1) * self.dd,
-                        19 * self.window_size + (i-1) * self.dd,
+                        21.5 * self.window_size + (j - 1) * self.dd,
+                        19 * self.window_size + (i - 1) * self.dd,
                         j, i,
-                        self.board.chessboard[i][j]-1
+                        self.board.chessboard[i][j] - 1
                     )
-
 
 class Client:
     def __init__(self):
         # 用于新建Application对象时切换成不同模式的游戏
         self.mode_num = 9
         self.newApp = False
-        self.chess_type = 0  # 0表示围棋，1表示五子棋
+        self.chess_type = 0  # 0表示围棋，1表示五子棋. 2表示黑白棋
 
     def run(self):
         while True:
