@@ -31,6 +31,9 @@ class Window(Tk):
         # 画布控件，作为容器
         self.canvas_bottom = Canvas(self, bg='#38A', bd=0, width=600 * self.window_size, height=400 * self.window_size)
         self.canvas_bottom.place(x=0, y=0)
+        # 回放
+        self.lookbackButton = Button(self, text='回放棋局', command=self.backend.lookBack)
+        self.lookbackButton.place(x=500 * self.window_size, y=250 * self.window_size)
         # 认输
         self.giveupButton = Button(self, text='投子认负', command=self.backend.giveup)
         self.giveupButton.place(x=500 * self.window_size, y=225 * self.window_size)

@@ -2,6 +2,7 @@ from Window import *
 from boards import *
 from heibai_board import *
 import Momento
+import time
 
 class Chess:
     def __init__(self, client, chessboard_size=9, chess_type=0):
@@ -31,6 +32,8 @@ class Chess:
         self.stop = True
         # 悔棋次数，次数大于0才可悔棋，初始置0（初始不能悔棋），悔棋后置0，下棋或弃手时恢复为1，以禁止连续悔棋
         self.regretchance = 0
+        # 录像回放功能相关类
+        self.lookback = Momento.LookBack()
 
     # 开始游戏函数
     def start(self):
@@ -77,6 +80,7 @@ class Chess:
             self.recover(list_of_w, 1)
             if self.chess_type == 2:  # 黑白棋更新可下位置，要在玩家交换后更新
                 self.board.get_avalible_drop()
+            self.lookback.delete_move(2)  # 删除2步记录
 
     # 重新加载函数,删除图片，序列归零，设置一些初始参数，点击“重新开始”时调用
     def reload(self):
@@ -119,6 +123,8 @@ class Chess:
                                 event.x - dx + round(dx / self.dd) * self.dd - 0.5 * self.dd,
                                 event.y - dy + round(dy / self.dd) * self.dd - 0.5 * self.dd
                             )
+                            # 添加记录
+                            self.lookback.add_move(self.present, x, y)
                             # 轮到下一玩家
                             self.window.player_change(self.present)
                             self.present = 1 - self.present
@@ -143,6 +149,8 @@ class Chess:
                             event.x - dx + round(dx / self.dd) * self.dd - 0.5 * self.dd,
                             event.y - dy + round(dy / self.dd) * self.dd - 0.5 * self.dd
                         )
+                        # 添加记录
+                        self.lookback.add_move(self.present, x, y)
                         # 轮到下一玩家
                         self.window.player_change(self.present)
                         self.present = 1 - self.present
@@ -162,6 +170,28 @@ class Chess:
             else:
                 # 超出边界，声音警告
                 self.window.bell()
+
+        # 落子，并驱动玩家的轮流下棋行为
+
+    def getDowninBoard(self, player, row, col):
+        self.present = player
+        if self.chess_type == 2:
+            self.board.get_avalible_drop()
+        self.board.getDown(row, col)
+        self.updateboard([[col, row]])
+
+    def lookBack(self):
+        self.window.reload()
+        self.board.reload()
+        self.stop = 1
+        print(self.lookback.moves)
+        for player, row, col in self.lookback.moves:
+            self.getDowninBoard(player, row, col)
+            self.window.update()
+            # 等待1秒
+            time.sleep(1)
+
+
 
     # 恢复位置列表list_to_recover为b_or_w指定的棋子
     def recover(self, list_to_recover, b_or_w):
