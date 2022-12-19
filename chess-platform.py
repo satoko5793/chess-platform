@@ -1,8 +1,10 @@
+import UserSystem
 from Window import *
 from boards import *
 from heibai_board import *
 import Momento
 import time
+from UserSystem import *
 
 class Chess:
     def __init__(self, client, chessboard_size=9, chess_type=0):
@@ -34,6 +36,9 @@ class Chess:
         self.regretchance = 0
         # 录像回放功能相关类
         self.lookback = Momento.LookBack()
+        # 用户系统
+        self.usersystem = UserSystem()
+        self.curentUsers = [User('游客1', 0, 0), User('游客2', 0, 0)]
 
     # 开始游戏函数
     def start(self):
@@ -277,6 +282,18 @@ class Chess:
                         self.board.chessboard[i][j] - 1
                     )
 
+    def register(self, username, password):
+        self.usersystem.add_user(username, password, 'user')
+        self.usersystem.save()
+
+    def login(self, username, password):
+        result = self.usersystem.login(username, password)
+        if result:
+            self.curentUsers[self.present] = self.usersystem.users[username]
+        else:
+            print("用户名或密码不正确，登录失败")
+        return result
+
 class Client:
     def __init__(self):
         # 用于新建Application对象时切换成不同模式的游戏
@@ -288,7 +305,13 @@ class Client:
         while True:
             self.newApp = False
             app = Chess(self, self.mode_num, self.chess_type)
-            app.window.title('围棋' if self.chess_type == 0 else '五子棋')
+            if self.chess_type == 0:
+                title = '围棋'
+            elif self.chess_type == 1:
+                title = '五子棋'
+            else:
+                title = '黑白棋'
+            app.window.title(title)
             app.window.mainloop()
             if self.newApp:
                 app.window.destroy()

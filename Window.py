@@ -31,6 +31,15 @@ class Window(Tk):
         # 画布控件，作为容器
         self.canvas_bottom = Canvas(self, bg='#38A', bd=0, width=600 * self.window_size, height=400 * self.window_size)
         self.canvas_bottom.place(x=0, y=0)
+        #用户名字
+        self.userlabel = Label(self, text="")
+        self.userlabel.place(x=500 * self.window_size-25, y=120 * self.window_size)
+        # 注册
+        self.registerButton = Button(self, text='用户注册', command=self.register)
+        self.registerButton.place(x=500 * self.window_size, y=300 * self.window_size)
+        # 登录
+        self.loginButton = Button(self, text='用户登录', command=self.login)
+        self.loginButton.place(x=500 * self.window_size, y=275 * self.window_size)
         # 回放
         self.lookbackButton = Button(self, text='回放棋局', command=self.backend.lookBack)
         self.lookbackButton.place(x=500 * self.window_size, y=250 * self.window_size)
@@ -107,6 +116,54 @@ class Window(Tk):
         # 设置退出快捷键<Ctrl>+<D>，快速退出游戏
         self.bind('<Control-KeyPress-d>', self.backend.keyboardQuit)
 
+    # 创建登录按钮并绑定回调函数
+    def login(self):
+        login_window = Toplevel()
+        login_window.title("登录窗口")
+
+        Label(login_window, text="用户名:").grid(row=0)
+        username_entry = Entry(login_window)
+        username_entry.grid(row=0, column=1)
+
+        Label(login_window, text="密码:").grid(row=1)
+        password_entry = Entry(login_window, show="*")
+        password_entry.grid(row=1, column=1)
+
+        def do_login():
+            # 获取用户名和密码
+            username = username_entry.get()
+            password = password_entry.get()
+            # 在这里进行登录操作
+            self.backend.login(username, password)
+            login_window.destroy()
+
+        login_button = Button(login_window, text="登录", command=do_login)
+        login_button.grid(row=2)
+
+    # 创建登录按钮并绑定回调函数
+    def register(self):
+        register_window = Toplevel()
+        register_window.title("注册窗口")
+
+        Label(register_window, text="用户名:").grid(row=0)
+        username_entry = Entry(register_window)
+        username_entry.grid(row=0, column=1)
+
+        Label(register_window, text="密码:").grid(row=1)
+        password_entry = Entry(register_window)
+        password_entry.grid(row=1, column=1)
+
+        def do_register():
+            # 获取用户名和密码
+            username = username_entry.get()
+            password = password_entry.get()
+            # 在这里进行登录操作
+            self.backend.register(username, password)
+            register_window.destroy()
+
+        register_button = Button(register_window, text="注册", command=do_register)
+        register_button.grid(row=2)
+
     def save(self):
         wordFile = tkinter.filedialog.askdirectory(title='选择存放的位置！', initialdir=r'./test')
         print("保存到"+wordFile)
@@ -147,6 +204,7 @@ class Window(Tk):
             self.del_pB()
 
     def player_change(self, present):
+        self.userlabel.configure(text=self.backend.curentUsers[present].username)
         if present == 0:
             self.create_pW()
             self.del_pB()
