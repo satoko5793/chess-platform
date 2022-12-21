@@ -38,7 +38,7 @@ class Chess:
         self.lookback = Momento.LookBack()
         # 用户系统
         self.usersystem = UserSystem()
-        self.curentUsers = [User('游客1', 0, 0), User('游客2', 0, 0)]
+        self.curentUsers = [User('游客1', 0, 'user'), User('游客2', 0, 'user')]
 
     # 开始游戏函数
     def start(self):
@@ -131,8 +131,7 @@ class Chess:
                             # 添加记录
                             self.lookback.add_move(self.present, x, y)
                             # 轮到下一玩家
-                            self.window.player_change(self.present)
-                            self.present = 1 - self.present
+                            self.change_player()
                         elif result == "无气":
                             self.window.canvas_bottom.delete('position' + str(x) + str(y))
                             self.window.bell()
@@ -156,11 +155,6 @@ class Chess:
                         )
                         # 添加记录
                         self.lookback.add_move(self.present, x, y)
-                        # 轮到下一玩家
-                        self.window.player_change(self.present)
-                        self.present = 1 - self.present
-                        if self.chess_type == 2:  # 黑白棋更新可下位置，要在玩家交换后更新
-                            self.board.get_avalible_drop()
                         win, winner = self.board.check_win()
                         if win:
                             self.stop = True
@@ -169,6 +163,11 @@ class Chess:
                             else:
                                 message = "平局，无子可下"
                             self.window.showwarningbox("游戏结束", message)
+                            return
+                        # 轮到下一玩家
+                        self.change_player()
+                        if self.chess_type == 2:  # 黑白棋更新可下位置，要在玩家交换后更新
+                            self.board.get_avalible_drop()
                 else:
                     # 覆盖，声音警告
                     self.window.bell()
@@ -176,7 +175,33 @@ class Chess:
                 # 超出边界，声音警告
                 self.window.bell()
 
-        # 落子，并驱动玩家的轮流下棋行为
+
+    def change_player(self):
+        self.window.player_change(self.present)
+        self.present = 1 - self.present
+        if self.curentUsers[self.present].role != 'user':
+            self.window.update()
+            time.sleep(0.5)
+            if self.curentUsers[self.present].role == 'ai1':
+                self.board.ai_move1()
+            elif self.curentUsers[self.present].role == 'ai2':
+                self.board.ai_move2()
+            # 落下棋子有效
+            if not self.regretchance == 1:
+                self.regretchance += 1
+            else:
+                self.window.regretButton['state'] = NORMAL
+            win, winner = self.board.check_win()
+            if win:
+                self.stop = True
+                if win == 1:
+                    message = ("黑子" if winner == 1 else "白子") + "胜利！"
+                else:
+                    message = "平局，无子可下"
+                self.window.showwarningbox("游戏结束", message)
+                return
+            self.change_player()
+
 
     def getDowninBoard(self, player, row, col):
         self.present = player
@@ -196,7 +221,13 @@ class Chess:
             # 等待1秒
             time.sleep(1)
 
+    def add_ai1(self):  # 添加1级ai
+        self.curentUsers[self.present] = User("一级AI", 0, 'ai1')
+        self.window.update_user_label()
 
+    def add_ai2(self):  # 添加2级ai
+        self.curentUsers[self.present] = User("二级AI", 0, 'ai2')
+        self.window.update_user_label()
 
     # 恢复位置列表list_to_recover为b_or_w指定的棋子
     def recover(self, list_to_recover, b_or_w):
@@ -289,7 +320,8 @@ class Chess:
     def login(self, username, password):
         result = self.usersystem.login(username, password)
         if result:
-            self.curentUsers[self.present] = self.usersystem.users[username]
+            self.curentUsers[1-self.present] = self.usersystem.users[username]
+            self.window.update_user_label()
         else:
             print("用户名或密码不正确，登录失败")
         return result

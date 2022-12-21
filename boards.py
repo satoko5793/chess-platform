@@ -1,4 +1,5 @@
 import copy
+import random
 
 class board:
     def __init__(self, chessboard_size=9):
@@ -223,6 +224,51 @@ class wuziqi_board(board):
         self.dd = dd  # 棋盘每格的边长
         # 棋盘的相对矫正比例
         self.p = p
+
+    # AI
+    def ai_move1(self):
+        possible_moves = []
+        for i in range(1, self.mode_num+1):
+            for j in range(1, self.mode_num+1):
+                if self.chessboard[i][j] == 0:
+                    possible_moves.append([i, j])
+        if len(possible_moves)-1 < 0:
+            return
+        index = random.randint(0, len(possible_moves)-1)
+        i = possible_moves[index][0]
+        j = possible_moves[index][1]
+        self.chessboard[i][j] = self.backend.present+1
+        self.last_3_chessboard = copy.deepcopy(self.last_2_chessboard)
+        self.last_2_chessboard = copy.deepcopy(self.last_1_chessboard)
+        self.last_1_chessboard = copy.deepcopy(self.chessboard)
+        self.backend.updateboard([[i, j]])
+        self.backend.lookback.add_move(self.backend.present, i, j)  # 添加记录
+
+    def ai_move2(self):  # 找现有棋子的周围下棋
+        my_chess = self.backend.present+1
+        for i in range(1, self.mode_num+1):
+            for j in range(1, self.mode_num+1):
+                if self.chessboard[i][j] == my_chess:
+                    for x in range(-1,2):
+                        for y in range(-1,2):
+                            if self.chessboard[i+x][j+y] == 0:
+                                self.chessboard[i+x][j+y] = my_chess
+                                self.last_3_chessboard = copy.deepcopy(self.last_2_chessboard)
+                                self.last_2_chessboard = copy.deepcopy(self.last_1_chessboard)
+                                self.last_1_chessboard = copy.deepcopy(self.chessboard)
+                                self.backend.updateboard([[i+x, j+y]])
+                                self.backend.lookback.add_move(self.backend.present, i+x, j+y)  # 添加记录
+                                return
+                            elif self.chessboard[i+x][j+y] == my_chess and self.chessboard[i-x][j-y] == 0:
+                                self.chessboard[i-x][j-y] = my_chess
+                                self.last_3_chessboard = copy.deepcopy(self.last_2_chessboard)
+                                self.last_2_chessboard = copy.deepcopy(self.last_1_chessboard)
+                                self.last_1_chessboard = copy.deepcopy(self.chessboard)
+                                self.backend.updateboard([[i - x, j - y]])
+                                self.backend.lookback.add_move(self.backend.present, i - x, j - y)  # 添加记录
+                                return
+        self.ai_move1()  # 不行就随便下
+
 
     def getDown(self, x, y):
         # 判断位置是否已经被占据

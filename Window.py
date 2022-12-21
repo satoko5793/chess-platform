@@ -34,6 +34,12 @@ class Window(Tk):
         #用户名字
         self.userlabel = Label(self, text="")
         self.userlabel.place(x=500 * self.window_size-25, y=120 * self.window_size)
+        # 2级ai
+        self.ai2Button = Button(self, text='设为二级ai', command=self.backend.add_ai2)
+        self.ai2Button.place(x=500 * self.window_size, y=350 * self.window_size)
+        # 1级ai
+        self.ai1Button = Button(self, text='设为一级ai', command=self.backend.add_ai1)
+        self.ai1Button.place(x=500 * self.window_size, y=325 * self.window_size)
         # 注册
         self.registerButton = Button(self, text='用户注册', command=self.register)
         self.registerButton.place(x=500 * self.window_size, y=300 * self.window_size)
@@ -136,6 +142,7 @@ class Window(Tk):
             # 在这里进行登录操作
             self.backend.login(username, password)
             login_window.destroy()
+            self.userlabel.configure(text=self.backend.curentUsers[1-self.backend.present].username)
 
         login_button = Button(login_window, text="登录", command=do_login)
         login_button.grid(row=2)
@@ -203,8 +210,11 @@ class Window(Tk):
             self.create_pW()
             self.del_pB()
 
+    def update_user_label(self):
+        self.userlabel.configure(text=self.backend.curentUsers[self.backend.present].username)
+
     def player_change(self, present):
-        self.userlabel.configure(text=self.backend.curentUsers[present].username)
+        self.update_user_label()
         if present == 0:
             self.create_pW()
             self.del_pB()
