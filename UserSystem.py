@@ -49,8 +49,18 @@ class UserSystem:
         with open(filename, "rb") as f:
             self.users = pickle.load(f)
 
+    def addwin(self, username):
+        if username in self.users:
+            self.users[username].win += 1
+
+    def addloss(self, username):
+        if username in self.users:
+            self.users[username].loss += 1
+
 class User:
     def __init__(self, username, password, role):
         self.username = username
         self.password = password
         self.role = role
+        self.win = 0
+        self.loss = 0

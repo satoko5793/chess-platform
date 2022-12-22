@@ -23,6 +23,8 @@ class Chess:
         self.window = Window(self, self.window_size, self.dd, self.p, chessboard_size)
         if self.chess_type == 1:
             self.window.passmeButton['state'] = DISABLED  # 五子棋没有弃子
+            self.window.ai2Button['state'] = NORMAL  #  五子棋有ai
+            self.window.ai1Button['state'] = NORMAL
         if self.chess_type == 0:
             self.board = weiqi_board(self, self.window_size, self.dd, self.p, chessboard_size)
         elif self.chess_type == 1:
@@ -44,6 +46,8 @@ class Chess:
     def start(self):
         # 图标处理
         self.window.start(self.present)
+        self.window.update_user_label()
+        self.window.update_user_record()
         # 开始标志，解除stop
         self.stop = None
 
@@ -160,6 +164,14 @@ class Chess:
                             self.stop = True
                             if win == 1:
                                 message = ("黑子" if winner == 1 else "白子") + "胜利！"
+                                if winner == 1:
+                                    self.curentUsers[0].win += 1
+                                    self.curentUsers[1].loss += 1  # 修改这里就会修改usersystem里的users
+                                else:
+                                    self.curentUsers[1].win += 1
+                                    self.curentUsers[0].loss += 1
+                                self.window.update_user_record()
+                                self.usersystem.save()
                             else:
                                 message = "平局，无子可下"
                             self.window.showwarningbox("游戏结束", message)
@@ -179,6 +191,7 @@ class Chess:
     def change_player(self):
         self.window.player_change(self.present)
         self.present = 1 - self.present
+        self.window.update_user_label()
         if self.curentUsers[self.present].role != 'user':
             self.window.update()
             time.sleep(0.5)
@@ -196,6 +209,18 @@ class Chess:
                 self.stop = True
                 if win == 1:
                     message = ("黑子" if winner == 1 else "白子") + "胜利！"
+                    if winner == 1:
+                        self.curentUsers[0].win += 1
+                        self.curentUsers[1].loss += 1
+                        self.usersystem.addwin(self.curentUsers[0].username)
+                        self.usersystem.addloss(self.curentUsers[1].username)
+                    else:
+                        self.curentUsers[1].win += 1
+                        self.curentUsers[0].loss += 1
+                        self.usersystem.addwin(self.curentUsers[1].username)
+                        self.usersystem.addloss(self.curentUsers[0].username)
+                    self.window.update_user_record()
+                    self.usersystem.save()
                 else:
                     message = "平局，无子可下"
                 self.window.showwarningbox("游戏结束", message)
@@ -320,8 +345,9 @@ class Chess:
     def login(self, username, password):
         result = self.usersystem.login(username, password)
         if result:
-            self.curentUsers[1-self.present] = self.usersystem.users[username]
+            self.curentUsers[self.present] = self.usersystem.users[username]
             self.window.update_user_label()
+            self.window.update_user_record()
         else:
             print("用户名或密码不正确，登录失败")
         return result

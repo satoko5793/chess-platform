@@ -234,6 +234,7 @@ class heibai_board(board):
         return drop_points, change_points
 
     def check_win(self):
+        self.get_avalible_drop()
         if 0 == len(self.drop_points):
             opponet = 1-self.backend.present
             op_drops, op_change = self.search_avalible_drop(opponet)
